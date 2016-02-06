@@ -7,6 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import <CoreData/CoreData.h>
 
 #define kSelectedTabDefaultKey @"Selected Tab" //key for store/retrieve from user defaults
 enum{
@@ -14,7 +15,7 @@ enum{
     kBySecretIdentity,
 };
 
-@interface HeroListController : UIViewController <UITableViewDataSource, UITableViewDelegate, UITabBarDelegate>
+@interface HeroListController : UIViewController <UITableViewDataSource, UITableViewDelegate, UITabBarDelegate, NSFetchedResultsControllerDelegate>
 
 @property (weak, nonatomic) IBOutlet UIBarButtonItem *addBtn;
 @property (weak, nonatomic) IBOutlet UITableView *heroTableView;

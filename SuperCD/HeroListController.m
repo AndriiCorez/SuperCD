@@ -7,12 +7,15 @@
 //
 
 #import "HeroListController.h"
+#import "AppDelegate.h"
 
 @interface HeroListController ()
-
+@property (nonatomic, strong, readonly) NSFetchedResultsController *fetchedResultsController;
 @end
 
 @implementation HeroListController
+
+@synthesize fetchedResultsController = _fetchedResultsController;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -107,6 +110,87 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSUInteger tabIndex = [tabBar.items indexOfObject:item];
     [defaults setInteger:tabIndex forKey:kSelectedTabDefaultKey];
+}
+
+#pragma mark - NSFetchedResultsController
+
+- (NSFetchedResultsController*)fetchedResultsController{
+    if (_fetchedResultsController != nil) {
+        return _fetchedResultsController;
+    }
+    
+    NSFetchRequest *fetchRequest = [[NSFetchRequest alloc] init];
+    AppDelegate *appDelegate = (AppDelegate*)[[UIApplication sharedApplication] delegate];
+    NSManagedObjectContext *managedObjectContext = [appDelegate managedObjectContext];
+    NSEntityDescription *entity = [NSEntityDescription entityForName:@"Hero" inManagedObjectContext:managedObjectContext];
+    //sets for fetch request
+    [fetchRequest setEntity:entity];
+    [fetchRequest setFetchBatchSize:20];
+    //user defaults if no tab is selected
+    NSUInteger tabIndex = [self.heroTabBar.items indexOfObject:self.heroTabBar.selectedItem];
+    if (tabIndex == NSNotFound) {
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        tabIndex = [defaults integerForKey:kSelectedTabDefaultKey];
+    }
+    //sorting - telling what entity is used for sorting
+    NSString *sectionKey = nil;
+    switch (tabIndex) {
+        case kByName:{
+            NSSortDescriptor *sortDescriptor1 = [[NSSortDescriptor alloc] initWithKey:@"name" ascending:YES];
+            NSSortDescriptor *sortDescriptor2 = [[NSSortDescriptor alloc] initWithKey:@"secretIdentity" ascending:YES];
+            NSArray *sortDescriptors = [[NSArray alloc] initWithObjects:sortDescriptor1, sortDescriptor2, nil];
+            [fetchRequest setSortDescriptors:sortDescriptors];
+            sectionKey = @"name";
+            break;
+        }
+        case kBySecretIdentity:{
+            NSSortDescriptor *sortDescriptor1 = [[NSSortDescriptor alloc] initWithKey:@"secretIdentity" ascending:YES];
+            NSSortDescriptor *sortDescriptor2 = [[NSSortDescriptor alloc] initWithKey:@"name" ascending:YES];
+            NSArray *sortDescriptors = [[NSArray alloc] initWithObjects:sortDescriptor1,sortDescriptor2, nil];
+            [fetchRequest setSortDescriptors:sortDescriptors];
+            sectionKey = @"secretIdentity";
+            break;
+        }
+        default:
+            break;
+    }
+    //instantiate fetch results controller
+    _fetchedResultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:fetchRequest managedObjectContext:managedObjectContext sectionNameKeyPath:sectionKey cacheName:@"Hero"];
+    _fetchedResultsController.delegate = self;
+    return _fetchedResultsController;
+}
+
+#pragma mark - NSFetchedResultsControllerDelegate Methods
+- (void)controllerWillChangeContent:(NSFetchedResultsController *)controller{
+    [self.heroTableView beginUpdates];
+}
+
+- (void)controllerDidChangeContent:(NSFetchedResultsController *)controller{
+    [self.heroTableView endUpdates];
+}
+
+- (void)controller:(NSFetchedResultsController *)controller didChangeSection:(id<NSFetchedResultsSectionInfo>)sectionInfo atIndex:(NSUInteger)sectionIndex forChangeType:(NSFetchedResultsChangeType)type{
+    switch (type) {
+        case NSFetchedResultsChangeInsert:
+            [self.heroTableView insertSections:[NSIndexSet indexSetWithIndex:sectionIndex] withRowAnimation:UITableViewRowAnimationFade];
+            break;
+        case NSFetchedResultsChangeDelete:
+            [self.heroTableView deleteSections:[NSIndexSet indexSetWithIndex:sectionIndex] withRowAnimation:UITableViewRowAnimationFade];
+            break;
+    }
+}
+
+- (void)controller:(NSFetchedResultsController *)controller didChangeObject:(id)anObject atIndexPath:(NSIndexPath *)indexPath forChangeType:(NSFetchedResultsChangeType)type newIndexPath:(NSIndexPath *)newIndexPath{
+    switch (type) {
+        case NSFetchedResultsChangeInsert:
+            [self.heroTableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+            break;
+        case NSFetchedResultsChangeDelete:
+            [self.heroTableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+        case NSFetchedResultsChangeUpdate:
+        case NSFetchedResultsChangeMove:
+            break;
+    }
 }
 
 - (IBAction)addHero:(id)sender {
