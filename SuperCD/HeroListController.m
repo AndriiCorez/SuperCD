@@ -33,6 +33,13 @@
     NSInteger selectedTab = [defaults integerForKey:kSelectedTabDefaultKey];
     UITabBarItem *itemBar = [self.heroTabBar.items objectAtIndex:selectedTab];
     [self.heroTabBar setSelectedItem:itemBar];
+    
+    //fetch entities
+    NSError *error;
+    if (![[self fetchedResultsController] performFetch:&error]) {
+        NSString *message = [NSString stringWithFormat:@"Error was %@: exiting", [error localizedDescription]];
+        [self showAlert:NSLocalizedString(@"Error fetching entity", @"Error fetching entity") message:NSLocalizedString(message, message) buttonText:NSLocalizedString(@"Error fetching", @"Error fetching") handler:^(UIAlertAction *alert){[self dismissButtonOnAlertController:alert];}];
+    }
 }
 
 - (void)didReceiveMemoryWarning {
@@ -43,24 +50,35 @@
 #pragma mark - Table view data source
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-#warning Incomplete implementation, return the number of sections
-    return 0;
+    return [[self.fetchedResultsController sections] count];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-#warning Incomplete implementation, return the number of rows
-    return 0;
+    id <NSFetchedResultsSectionInfo> sectionInfo = [[self.fetchedResultsController sections] objectAtIndex:section];
+    return [sectionInfo numberOfObjects];
 }
 
-/*
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:<#@"reuseIdentifier"#> forIndexPath:indexPath];
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"HeroListCell" forIndexPath:indexPath];
     
-    // Configure the cell...
+    // The way the cell should be displayed like
+    NSManagedObject *aHero = [self.fetchedResultsController objectAtIndexPath:indexPath];
+    NSInteger tab = [self.heroTabBar.items indexOfObject:self.heroTabBar.selectedItem];
+    
+    switch (tab) {
+        case kByName:
+            cell.textLabel.text = [aHero valueForKey:@"name"];
+            cell.detailTextLabel.text = [aHero valueForKey:@"secretIdentity"];
+            break;
+        case kBySecretIdentity:
+            cell.textLabel.text = [aHero valueForKey:@"secretIdentity"];
+            cell.detailTextLabel.text = [aHero valueForKey:@"name"];
+    }
     
     return cell;
 }
-*/
+
 
 /*
 // Override to support conditional editing of the table view.
@@ -70,17 +88,23 @@
 }
 */
 
-/*
-// Override to support editing the table view.
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSManagedObjectContext *contextMO = [self.fetchedResultsController managedObjectContext];
+    
     if (editingStyle == UITableViewCellEditingStyleDelete) {
         // Delete the row from the data source
-        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-    } else if (editingStyle == UITableViewCellEditingStyleInsert) {
-        // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-    }   
+        [contextMO deleteObject:[self.fetchedResultsController objectAtIndexPath:indexPath]];
+
+        NSError *error;
+        if (![contextMO save:&error]) {
+            NSString *message = [NSString stringWithFormat:@"Error was %@: exiting", [error localizedDescription]];
+            [self showAlert:NSLocalizedString(@"Error saving entity", @"Error saving entity") message:NSLocalizedString(message, message) buttonText:NSLocalizedString(@"Saving error", @"Saving error") handler:^(UIAlertAction *alert) {
+                [self dismissButtonOnAlertController:alert];
+            }];
+        }
+    }
 }
-*/
+
 
 /*
 // Override to support rearranging the table view.
@@ -105,11 +129,23 @@
     // Pass the selected object to the new view controller.
 }
 */
+
 #pragma mark - UITabBarDelegate Methods
 - (void)tabBar:(UITabBar *)tabBar didSelectItem:(UITabBarItem *)item{
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSUInteger tabIndex = [tabBar.items indexOfObject:item];
     [defaults setInteger:tabIndex forKey:kSelectedTabDefaultKey];
+    
+    //sorting table view
+    [NSFetchedResultsController deleteCacheWithName:@"Hero"];
+    _fetchedResultsController.delegate = nil;
+    _fetchedResultsController = nil;
+    
+    NSError *error;
+    if (![self.fetchedResultsController performFetch:&error]) {
+        NSLog(@"Error performing fetch: %@", [error localizedDescription]);
+    }
+    [self.heroTableView reloadData];
 }
 
 #pragma mark - NSFetchedResultsController
@@ -183,7 +219,7 @@
 - (void)controller:(NSFetchedResultsController *)controller didChangeObject:(id)anObject atIndexPath:(NSIndexPath *)indexPath forChangeType:(NSFetchedResultsChangeType)type newIndexPath:(NSIndexPath *)newIndexPath{
     switch (type) {
         case NSFetchedResultsChangeInsert:
-            [self.heroTableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+            [self.heroTableView insertRowsAtIndexPaths:@[newIndexPath] withRowAnimation:UITableViewRowAnimationFade];
             break;
         case NSFetchedResultsChangeDelete:
             [self.heroTableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
