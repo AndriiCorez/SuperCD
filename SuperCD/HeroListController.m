@@ -193,6 +193,42 @@
     }
 }
 
-- (IBAction)addHero:(id)sender {
+#pragma mark - UIAlertController handler methods
+- (void)dismissButtonOnAlertController:(UIAlertAction*)action{
+    exit(-1);
 }
+
+- (void)showAlert:(NSString*)title
+          message:(NSString*)message
+       buttonText:(NSString*)buttonText
+          handler:(void(^)(UIAlertAction *alert))handler{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *OKBtn = [UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:handler];
+    [alert addAction:OKBtn];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark Edit and Add buttons action
+- (IBAction)addHero:(id)sender {
+    NSManagedObjectContext *contextMO = [self.fetchedResultsController managedObjectContext];
+    NSEntityDescription *entity = [[self.fetchedResultsController fetchRequest] entity];
+    [NSEntityDescription insertNewObjectForEntityForName:[entity name] inManagedObjectContext:contextMO];
+    
+    NSError *error = nil;
+    if (![contextMO save:&error]) {
+        NSString *message = [NSString stringWithFormat:@"Error addHero %@: quit", error.localizedDescription];
+        [self showAlert:NSLocalizedString(@"Error saving entity", @"Error saving entity") message:NSLocalizedString(message, message) buttonText:NSLocalizedString(@"OK", @"OK") handler:^(UIAlertAction *alert) {
+            [self dismissButtonOnAlertController:alert];
+        }];
+    }
+}
+
+- (void)setEditing:(BOOL)editing animated:(BOOL)animated{
+    [super setEditing:editing animated:animated];
+    self.addBtn.enabled = !editing;
+    [self.heroTableView setEditing:editing animated:animated];
+}
+
+
+
 @end
